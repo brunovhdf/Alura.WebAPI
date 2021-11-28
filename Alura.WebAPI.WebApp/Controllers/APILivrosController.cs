@@ -6,7 +6,9 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Alura.WebAPI.WebApp.Controllers
 {
-    public class APILivrosController : Controller
+    [ApiController]
+    [Route("APILivros")]
+    public class APILivrosController : ControllerBase
     {
         private readonly IRepository<Livro> _repo;
         public APILivrosController(IRepository<Livro> repository)
@@ -15,6 +17,14 @@ namespace Alura.WebAPI.WebApp.Controllers
         }
 
         [HttpGet]
+        public IActionResult ListaLivros()
+        {
+            var Livros = _repo.All;
+            return Ok(Livros);
+        }
+
+        [HttpGet]
+        [Route("{id}")]
         public IActionResult Recuperar(int id)
         {
             var model = _repo.Find(id);
@@ -23,11 +33,11 @@ namespace Alura.WebAPI.WebApp.Controllers
                 return NotFound("Livro não encontrado");
             }
             model.ImagemCapa = null;
-            return Json(model);
+            return Ok(model);
         }
 
         [HttpPost]
-        public IActionResult Incluir(LivroUpload model)
+        public IActionResult Incluir([FromBody] LivroUpload model)
         {
             if(ModelState.IsValid)
             {
@@ -39,8 +49,8 @@ namespace Alura.WebAPI.WebApp.Controllers
             return BadRequest("Livro não cadastrado");
         }
 
-        [HttpPost]
-        public IActionResult Alterar(LivroUpload model)
+        [HttpPut]
+        public IActionResult Alterar([FromBody] LivroUpload model)
         {
             if (ModelState.IsValid)
             {
@@ -55,19 +65,20 @@ namespace Alura.WebAPI.WebApp.Controllers
                 _repo.Alterar(livro);
                 return Ok(livro); //200
             }
-            return BadRequest("Livro não alterado");
+            return BadRequest("Livro não alterado"); //400
         }
 
-        [HttpPost]
+        [HttpDelete]
+        [Route("{id}")]
         public IActionResult Excluir(int id)
         {
             var model = _repo.Find(id);
             if(model == null)
             {
-                return NotFound("Não encontrado livro com id: " + id);
+                return NotFound("Não encontrado livro com id: " + id); //404
             }
             _repo.Excluir(model);
-            return NoContent(); //203
+            return NoContent(); //204
         }
     }
 }
