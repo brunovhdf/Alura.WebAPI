@@ -6,12 +6,13 @@ using Microsoft.AspNetCore.Mvc;
 
 namespace Alura.WebAPI.WebApp.Controllers
 {
+    [Authorize]
     [ApiController]
-    [Route("APILivros")]
-    public class APILivrosController : ControllerBase
+    [Route("Api/Livros")]
+    public class LivrosController : ControllerBase
     {
         private readonly IRepository<Livro> _repo;
-        public APILivrosController(IRepository<Livro> repository)
+        public LivrosController(IRepository<Livro> repository)
         {
             _repo = repository;
         }
