@@ -6,7 +6,6 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
-using Alura.WebAPI.WebApp.Formatters;
 using System;
 using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Http;
@@ -41,9 +40,7 @@ namespace Alura.ListaLeitura.WebApp
                 client.BaseAddress = new Uri(Configuration["ApiURIs:AuthApi"]);
             });
 
-            services.AddMvc(options => {
-                options.OutputFormatters.Add(new LivroCsvFormatter());
-            }).AddXmlSerializerFormatters();
+            services.AddMvc().AddXmlSerializerFormatters();
         }
 
         public void Configure(IApplicationBuilder app, IHostingEnvironment env)
