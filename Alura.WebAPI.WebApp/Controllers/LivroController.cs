@@ -12,11 +12,9 @@ namespace Alura.ListaLeitura.WebApp.Controllers
     [Authorize]
     public class LivroController : Controller
     {
-        private readonly IRepository<Livro> _repo;
         private readonly LivroApiClient _livroApiClient;
         public LivroController(IRepository<Livro> repository, LivroApiClient livroApiClient)
         {
-            _repo = repository;
             _livroApiClient = livroApiClient;
         }
 

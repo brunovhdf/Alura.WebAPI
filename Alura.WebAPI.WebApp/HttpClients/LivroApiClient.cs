@@ -1,8 +1,7 @@
 ﻿using Alura.ListaLeitura.Modelos;
-using System;
-using System.Collections.Generic;
-using System.Linq;
+using Alura.ListaLeitura.Seguranca;
 using System.Net.Http;
+using System.Net.Http.Headers;
 using System.Threading.Tasks;
 using Lista = Alura.ListaLeitura.Modelos.ListaLeitura;
 
@@ -11,9 +10,11 @@ namespace Alura.ListaLeitura.HttpClients
     public class LivroApiClient
     {
         private readonly HttpClient _httpClient;
-        public LivroApiClient(HttpClient httpClient)
+        private readonly AuthApiClient _authApiClient;
+        public LivroApiClient(HttpClient httpClient,AuthApiClient authApiClient)
         {
             _httpClient = httpClient;
+            _authApiClient = authApiClient;
         }
         public async Task<LivroApi> GetLivroAsync(int id)
         {
@@ -23,6 +24,9 @@ namespace Alura.ListaLeitura.HttpClients
         }
         public async Task<byte[]> GetCapaAsync(int id)
         {
+            var tokenString = await _authApiClient.PostLoginAsync(new LoginModel { Login = "admin", Password = "123" });
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",tokenString);
+
             HttpResponseMessage resposta = await _httpClient.GetAsync($"livros/{id}/capa");
             resposta.EnsureSuccessStatusCode();
             return await resposta.Content.ReadAsByteArrayAsync();
@@ -34,6 +38,9 @@ namespace Alura.ListaLeitura.HttpClients
         }
         public async Task<Lista> GetListaLeituraAsync(TipoListaLeitura tipo)
         {
+            var tokenString = await _authApiClient.PostLoginAsync(new LoginModel { Login = "admin", Password = "123"});
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
+
             var resposta = await _httpClient.GetAsync($"ListasLeitura/{tipo}");
             resposta.EnsureSuccessStatusCode();
             return await resposta.Content.ReadAsAsync<Lista>();
@@ -59,7 +66,6 @@ namespace Alura.ListaLeitura.HttpClients
             }
             content.Add(new StringContent(livroUpload.Titulo), AspasDuplas("titulo"));
             content.Add(new StringContent(livroUpload.Lista.ParaString()), AspasDuplas("lista"));
-
             if (!string.IsNullOrEmpty(livroUpload.Subtitulo))
             {
                 content.Add(new StringContent(livroUpload.Subtitulo), AspasDuplas("subtitulo"));
@@ -78,7 +84,6 @@ namespace Alura.ListaLeitura.HttpClients
                 imagemContent.Headers.Add("content-type", "image/png");
                 content.Add(imagemContent, AspasDuplas("capa"), AspasDuplas("Capa.png"));
             }
-
             return content;
         }
         private string AspasDuplas(string valor)
