@@ -1,9 +1,6 @@
-﻿using System.Linq;
-using Alura.ListaLeitura.Persistencia;
-using Alura.ListaLeitura.Modelos;
+﻿using Alura.ListaLeitura.Modelos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
-using System.Net.Http;
 using System.Threading.Tasks;
 using Alura.ListaLeitura.HttpClients;
 
@@ -12,10 +9,11 @@ namespace Alura.ListaLeitura.WebApp.Controllers
     [Authorize]
     public class LivroController : Controller
     {
-        private readonly LivroApiClient _livroApiClient;
-        public LivroController(IRepository<Livro> repository, LivroApiClient livroApiClient)
+        private readonly LivroApiClient _api;
+
+        public LivroController(LivroApiClient api)
         {
-            _livroApiClient = livroApiClient;
+            _api = api;
         }
 
         [HttpGet]
@@ -30,7 +28,7 @@ namespace Alura.ListaLeitura.WebApp.Controllers
         {
             if (ModelState.IsValid)
             {
-                await _livroApiClient.PostLivroAsync(model);
+                await _api.PostLivroAsync(model);
                 return RedirectToAction("Index", "Home");
             }
             return View(model);
@@ -39,7 +37,7 @@ namespace Alura.ListaLeitura.WebApp.Controllers
         [HttpGet]
         public async Task<IActionResult> ImagemCapa(int id)
         {
-            byte[] img = await _livroApiClient.GetCapaAsync(id);
+            byte[] img = await _api.GetCapaLivroAsync(id);
             if (img != null)
             {
                 return File(img, "image/png");
@@ -50,12 +48,12 @@ namespace Alura.ListaLeitura.WebApp.Controllers
         [HttpGet]
         public async Task<IActionResult> Detalhes(int id)
         {
-            var livro = await _livroApiClient.GetLivroAsync(id);
-            if (livro == null)
+            var model = await _api.GetLivroAsync(id);
+            if (model == null)
             {
                 return NotFound();
             }
-            return View(livro.ToUpload());
+            return View(model.ToUpload());
         }
 
         [HttpPost]
@@ -64,7 +62,7 @@ namespace Alura.ListaLeitura.WebApp.Controllers
         {
             if (ModelState.IsValid)
             {
-                await _livroApiClient.PutLivroAsync(model);
+                await _api.PutLivroAsync(model);
                 return RedirectToAction("Index", "Home");
             }
             return View(model);
@@ -74,12 +72,12 @@ namespace Alura.ListaLeitura.WebApp.Controllers
         [ValidateAntiForgeryToken]
         public async Task<IActionResult> Remover(int id)
         {
-            var model = await _livroApiClient.GetLivroAsync(id);
+            var model = await _api.GetLivroAsync(id);
             if (model == null)
             {
                 return NotFound();
             }
-            await _livroApiClient.DeleteLivroAsync(id);
+            await _api.DeleteLivroAsync(id);
             return RedirectToAction("Index", "Home");
         }
     }

@@ -1,94 +1,134 @@
 ﻿using Alura.ListaLeitura.Modelos;
-using Alura.ListaLeitura.Seguranca;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Threading.Tasks;
 using Lista = Alura.ListaLeitura.Modelos.ListaLeitura;
+using System;
+using System.Net.Http;
+using System.Threading.Tasks;
+using System.Net.Http.Headers;
+using Alura.ListaLeitura.Seguranca;
+using Microsoft.AspNetCore.Http;
+using System.Linq;
 
 namespace Alura.ListaLeitura.HttpClients
 {
     public class LivroApiClient
     {
         private readonly HttpClient _httpClient;
-        private readonly AuthApiClient _authApiClient;
-        public LivroApiClient(HttpClient httpClient,AuthApiClient authApiClient)
-        {
-            _httpClient = httpClient;
-            _authApiClient = authApiClient;
-        }
-        public async Task<LivroApi> GetLivroAsync(int id)
-        {
-            HttpResponseMessage resposta = await _httpClient.GetAsync($"livros/{id}");
-            resposta.EnsureSuccessStatusCode();
-            return await resposta.Content.ReadAsAsync<LivroApi>();
-        }
-        public async Task<byte[]> GetCapaAsync(int id)
-        {
-            var tokenString = await _authApiClient.PostLoginAsync(new LoginModel { Login = "admin", Password = "123" });
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer",tokenString);
+        private readonly IHttpContextAccessor _acessor;
 
-            HttpResponseMessage resposta = await _httpClient.GetAsync($"livros/{id}/capa");
+        public LivroApiClient(HttpClient client, IHttpContextAccessor accessor)
+        {
+            _httpClient = client;
+            _acessor = accessor;
+        }
+
+        private void AddBearerToken()
+        {
+            var token = _acessor.HttpContext.User.Claims.First(c => c.Type == "Token").Value;
+            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        }
+
+        public async Task<byte[]> GetCapaLivroAsync(int id)
+        {
+            AddBearerToken();
+
+            var resposta = await _httpClient.GetAsync($"livros/{id}/capa");
             resposta.EnsureSuccessStatusCode();
             return await resposta.Content.ReadAsByteArrayAsync();
         }
+
+        public async Task<LivroApi> GetLivroAsync(int id)
+        {
+            AddBearerToken();
+            var resposta = await _httpClient.GetAsync($"livros/{id}");
+            resposta.EnsureSuccessStatusCode();
+            return await resposta.Content.ReadAsAsync<LivroApi>();
+        }
+
         public async Task DeleteLivroAsync(int id)
         {
+            AddBearerToken();
             var resposta = await _httpClient.DeleteAsync($"livros/{id}");
             resposta.EnsureSuccessStatusCode();
+            if (resposta.StatusCode != System.Net.HttpStatusCode.NoContent)
+            {
+                throw new InvalidOperationException("Código de Status Http 204 esperado!");
+            }
         }
-        public async Task<Lista> GetListaLeituraAsync(TipoListaLeitura tipo)
-        {
-            var tokenString = await _authApiClient.PostLoginAsync(new LoginModel { Login = "admin", Password = "123"});
-            _httpClient.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", tokenString);
 
-            var resposta = await _httpClient.GetAsync($"ListasLeitura/{tipo}");
-            resposta.EnsureSuccessStatusCode();
-            return await resposta.Content.ReadAsAsync<Lista>();
-        }
-        public async Task PostLivroAsync(LivroUpload livroUpload)
+        public async Task PostLivroAsync(LivroUpload livro)
         {
-            HttpContent content = CreateMultipoartFormDataContent(livroUpload);
+            AddBearerToken();
+            HttpContent content = CreateMultipartContent(livro.ToLivro());
             var resposta = await _httpClient.PostAsync("livros", content);
             resposta.EnsureSuccessStatusCode();
+            if (resposta.StatusCode != System.Net.HttpStatusCode.Created)
+            {
+                throw new InvalidOperationException("Código de Status Http 201 esperado!");
+            }
         }
-        public async Task PutLivroAsync (LivroUpload livroUpload)
+
+        public async Task PutLivroAsync(LivroUpload livro)
         {
-            HttpContent content = CreateMultipoartFormDataContent(livroUpload);
+            AddBearerToken();
+            HttpContent content = CreateMultipartContent(livro.ToLivro());
             var resposta = await _httpClient.PutAsync("livros", content);
             resposta.EnsureSuccessStatusCode();
+            if (resposta.StatusCode != System.Net.HttpStatusCode.OK)
+            {
+                throw new InvalidOperationException("Código de Status Http 200 esperado!");
+            }
+
         }
-        private HttpContent CreateMultipoartFormDataContent(LivroUpload livroUpload)
+
+        private string EnvolveComAspasDuplas(string valor)
+        {
+            return $"\u0022{valor}\u0022";
+        }
+
+        private HttpContent CreateMultipartContent(Livro livro)
         {
             var content = new MultipartFormDataContent();
-            if (livroUpload.Id != 0)
+
+            content.Add(new StringContent(livro.Titulo), EnvolveComAspasDuplas("titulo"));
+            content.Add(new StringContent(livro.Lista.ParaString()), EnvolveComAspasDuplas("lista"));
+
+            if (livro.Id > 0)
             {
-                content.Add(new StringContent(livroUpload.Id.ToString()), AspasDuplas("id"));
+                content.Add(new StringContent(Convert.ToString(livro.Id)), EnvolveComAspasDuplas("id"));
             }
-            content.Add(new StringContent(livroUpload.Titulo), AspasDuplas("titulo"));
-            content.Add(new StringContent(livroUpload.Lista.ParaString()), AspasDuplas("lista"));
-            if (!string.IsNullOrEmpty(livroUpload.Subtitulo))
+
+            if (!string.IsNullOrEmpty(livro.Subtitulo))
             {
-                content.Add(new StringContent(livroUpload.Subtitulo), AspasDuplas("subtitulo"));
+                content.Add(new StringContent(livro.Subtitulo), EnvolveComAspasDuplas("subtitulo"));
             }
-            if (!string.IsNullOrEmpty(livroUpload.Resumo))
+
+            if (!string.IsNullOrEmpty(livro.Resumo))
             {
-                content.Add(new StringContent(livroUpload.Resumo), AspasDuplas("resumo"));
+                content.Add(new StringContent(livro.Resumo), EnvolveComAspasDuplas("resumo"));
             }
-            if (!string.IsNullOrEmpty(livroUpload.Autor))
+
+            if (!string.IsNullOrEmpty(livro.Autor))
             {
-                content.Add(new StringContent(livroUpload.Autor), AspasDuplas("autor"));
+                content.Add(new StringContent(livro.Autor), EnvolveComAspasDuplas("autor"));
             }
-            if (livroUpload.Capa != null)
+
+            if (livro.ImagemCapa != null)
             {
-                var imagemContent = new ByteArrayContent(livroUpload.Capa.ConvertToBytes());
-                imagemContent.Headers.Add("content-type", "image/png");
-                content.Add(imagemContent, AspasDuplas("capa"), AspasDuplas("Capa.png"));
+                var imageContent = new ByteArrayContent(livro.ImagemCapa);
+                imageContent.Headers.ContentType = MediaTypeHeaderValue.Parse("image/png");
+                content.Add(imageContent, EnvolveComAspasDuplas("capa"), EnvolveComAspasDuplas("capa.png"));
             }
+
             return content;
         }
-        private string AspasDuplas(string valor)
+
+        public async Task<Lista> GetListaLeituraAsync(TipoListaLeitura tipo)
         {
-            return $"\"{valor}\"";
+            AddBearerToken();
+
+            var resposta = await _httpClient.GetAsync($"listasleitura/{tipo}");
+            resposta.EnsureSuccessStatusCode();
+            return await resposta.Content.ReadAsAsync<Lista>();
         }
     }
 }
