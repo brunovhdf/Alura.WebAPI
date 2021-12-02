@@ -15,6 +15,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.IdentityModel.Tokens;
+using Swashbuckle.AspNetCore.Swagger;
 
 namespace Alura.WebAPI.Api
 {
@@ -67,6 +68,12 @@ namespace Alura.WebAPI.Api
                 option.SuppressModelStateInvalidFilter = true;
             });
 
+            services.AddSwaggerGen(option =>
+            {
+                option.SwaggerDoc("v1", new Info { Title = "Titulo 1", Description = "API Documentation" , Version = "1.0" });
+                option.SwaggerDoc("v2", new Info { Title = "Titulo 2", Description = "API Documentation" , Version = "2.0" });
+            });
+
             services.AddApiVersioning
                 (
                   /*
@@ -90,8 +97,12 @@ namespace Alura.WebAPI.Api
             }
 
             app.UseAuthentication();
-
             app.UseMvc();
+            app.UseSwagger();
+            app.UseSwaggerUI(x => {
+                x.SwaggerEndpoint("/swagger/v1/swagger.json", "v1");
+                x.SwaggerEndpoint("/swagger/v2/swagger.json", "v2");
+            });
         }
     }
 }
