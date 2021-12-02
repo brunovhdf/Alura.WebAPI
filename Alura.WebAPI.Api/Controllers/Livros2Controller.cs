@@ -4,6 +4,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using Alura.ListaLeitura.Modelos;
 using Alura.ListaLeitura.Persistencia;
+using Alura.WebAPI.Api.Modelos;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Mvc.Formatters;
@@ -12,21 +13,26 @@ namespace Alura.ListaLeitura.Api.Controllers
 {
     [ApiController]
     [Authorize]
-    [ApiVersion("1.0")]
+    [ApiVersion("2.0")]
     [Route("api/v{version:ApiVersion}/livros")]
-    public class LivrosController : ControllerBase
+    public class Livros2Controller : ControllerBase
     {
         private readonly IRepository<Livro> _repo;
 
-        public LivrosController(IRepository<Livro> repository)
+        public Livros2Controller(IRepository<Livro> repository)
         {
             _repo = repository;
         }
 
         [HttpGet]
-        public IActionResult ListaDeLivros()
+        public IActionResult ListaDeLivros
+            (
+                [FromQuery] LivroFiltro filtro,
+                [FromQuery] LivroOrdem ordem,
+                [FromQuery] LivroPaginacao paginacao
+            )
         {
-            var lista = _repo.All.Select(l => l.ToApi()).ToList();
+            var lista = _repo.All.AplicaFiltro(filtro).AplicaOrdem(ordem).Select(l => l.ToApi()).ToLivroPaginado(paginacao);
             return Ok(lista);
         }
 
@@ -38,7 +44,7 @@ namespace Alura.ListaLeitura.Api.Controllers
             {
                 return NotFound();
             }
-            return Ok(model.ToApi());
+            return Ok(model);
         }
 
         [HttpGet("{id}/capa")]
@@ -60,12 +66,12 @@ namespace Alura.ListaLeitura.Api.Controllers
         {
             if (ModelState.IsValid)
             {
-                var livro = model.ToLivro();
-                _repo.Incluir(livro);
-                var uri = Url.Action("Recuperar", new { id = livro.Id });
-                return Created(uri, livro); //201
+                    var livro = model.ToLivro();
+                    _repo.Incluir(livro);
+                    var uri = Url.Action("Recuperar", new { id = livro.Id });
+                    return Created(uri, livro); //201
             }
-            return BadRequest();
+            return BadRequest(ErrorResponse.FromModelState(ModelState));
         }
 
         [HttpPut]
@@ -84,7 +90,7 @@ namespace Alura.ListaLeitura.Api.Controllers
                 _repo.Alterar(livro);
                 return Ok(); //200
             }
-            return BadRequest();
+            return BadRequest(ErrorResponse.FromModelState(ModelState));
         }
 
         [HttpDelete("{id}")]
